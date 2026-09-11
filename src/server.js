@@ -1,13 +1,19 @@
+const http = require('node:http')
+
 const cors = require('cors')
 const express = require('express')
+
+const { attachRealtime } = require('./realtime')
 
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// Vite's dev server origin. Add the production origin here when you deploy.
+// Vite's dev server origin. Add the production origin(s) when you deploy, either
+// here or as a comma-separated ALLOWED_ORIGINS environment variable.
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  ...(process.env.ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()).filter(Boolean) ?? []),
 ]
 
 app.use(
@@ -62,6 +68,15 @@ app.post('/api/legion-webhook', (req, res) => {
   res.sendStatus(200)
 })
 
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`)
+// Express and the lobby WebSocket (ws://host/ws) share one HTTP server and port.
+const server = http.createServer(app)
+const realtime = attachRealtime(server, { allowedOrigins: ALLOWED_ORIGINS })
+
+/** Open lobbies and how full they are. */
+app.get('/api/lobbies', (_req, res) => {
+  res.json({ lobbies: realtime.lobbies.list() })
+})
+
+server.listen(PORT, () => {
+  console.log(`Server listening on http://localhost:${PORT} (lobbies on ws://localhost:${PORT}/ws)`)
 })
