@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test \"src/**/*.test.js\"",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"
   },
@@ -13,6 +13,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@colyseus/ws-transport": "^0.18.2",
+    "colyseus": "^0.18.5",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "nodemon": "^3.1.14"
