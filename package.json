@@ -12,11 +12,16 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@colyseus/ws-transport": "^0.18.2",
     "colyseus": "^0.18.5",
     "cors": "^2.8.6",
-    "express": "^5.2.1",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
     "nodemon": "^3.1.14"
   }
 }
