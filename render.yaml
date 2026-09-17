@@ -30,8 +30,10 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22
-      # Set in the Render dashboard once the game's real address is known - the
-      # deployed origin is refused until it is listed. `sync: false` is what makes
-      # Render ask for it rather than keeping a value in this file.
+      # The game is served from https://clicperpower.netlify.app, and that origin is
+      # refused until it is listed here. Set in the Render dashboard rather than in
+      # this file - that is what `sync: false` asks for - because Netlify branch and
+      # preview builds each get their own origin and the list changes more often than
+      # the deployment does.
       - key: ALLOWED_ORIGINS
         sync: false

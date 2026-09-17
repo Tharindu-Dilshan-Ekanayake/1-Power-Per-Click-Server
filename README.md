@@ -29,10 +29,21 @@ Copy `.env.example` for the full notes. The short version:
 
 `ALLOWED_ORIGINS` is the one that bites. Browsers always send an `Origin` header, and
 `verifyClient` in `src/realtime.js` refuses any origin it does not recognise. The two
-Vite dev origins are built in; every other one — the deployed game, a Vercel preview
-URL, your phone on the Wi-Fi — has to be listed here or the socket is rejected with no
-explanation the player can see. Origins are exact: scheme, host and port must match,
-and there is no trailing slash.
+Vite dev origins are built in; every other one — the deployed game, a Netlify preview
+URL, your phone on the Wi-Fi — has to be listed here or the socket is rejected with a
+401 the player never sees. Origins are exact: scheme, host and port must match, and
+there is no trailing slash.
+
+The game is served from Netlify, so at minimum:
+
+```
+ALLOWED_ORIGINS=https://clicperpower.netlify.app
+```
+
+Netlify gives every branch and pull request its own origin
+(`https://<branch>--clicperpower.netlify.app`,
+`https://deploy-preview-<n>--clicperpower.netlify.app`). Those are separate origins and
+are refused unless listed too, so add the ones you actually test from.
 
 ## Deploying to Render
 
@@ -41,14 +52,17 @@ dashboard. In Render: **New → Blueprint**, pick this repo, and it reads the fi
 will ask for `ALLOWED_ORIGINS`; if you do not know the game's address yet, put
 anything and correct it afterwards under the service's **Environment** tab.
 
-Then point the client at it. In the client's Vercel project, set
+Then point the client at it. In Netlify — **Site configuration → Environment
+variables** — set
 
 ```
 VITE_SERVER_URL=https://power-per-click-server.onrender.com
 ```
 
-and **redeploy**. Vite bakes its environment into the bundle at build time, so a
-variable added after a build has no effect on that build.
+and **trigger a new deploy**. Vite bakes its environment into the bundle at build
+time, so a variable added after a build does nothing to that build; the site keeps
+whatever address it was built with until it is rebuilt. You can check which one a
+deploy actually shipped by searching its `assets/index-*.js` for `onrender.com`.
 
 Use the `https://` address, not `http://`. The client turns it into the socket URL by
 swapping the scheme (`lobbyClient.js`), so `http://` becomes `ws://` — and a browser on
