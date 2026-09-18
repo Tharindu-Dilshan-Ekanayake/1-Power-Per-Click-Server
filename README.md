@@ -45,6 +45,41 @@ Netlify gives every branch and pull request its own origin
 `https://deploy-preview-<n>--clicperpower.netlify.app`). Those are separate origins and
 are refused unless listed too, so add the ones you actually test from.
 
+## Deploying to Bloxity Legion
+
+This is the game's own hosting — one platform for both the client and this server,
+already partly wired up (`/api/legion-auth`, `/api/legion-webhook`). Legion runs a
+Docker image, not the source directly, so the moving parts are the `Dockerfile` at
+the repo root and `.github/workflows/deploy.yml`, not `render.yaml`.
+
+**One-time setup**, in this repo's GitHub settings:
+
+| where | name | value |
+| --- | --- | --- |
+| Secrets and variables → Actions → **Secrets** | `LEGION_DEPLOY_TOKEN` | the deploy token from the Bloxity hosting page's "My Games" |
+| Secrets and variables → Actions → **Variables** | `LEGION_GAME_ID` | this game's id, from the same page |
+
+The deploy token is shown once and cannot be retrieved again — if it is lost,
+generate a new one from the same page; the old one still works until then, so there
+is no rush. It belongs only in that GitHub secret. If it ever ends up committed to a
+file, deleting the line is not enough — regenerate it, because the old value stays
+in the git history regardless.
+
+**Then it deploys itself.** Push to `main` and the workflow builds an image, pushes
+it to `ghcr.io`, and asks Legion to roll it out to the **prod** channel. Push to
+`dev` and it goes to the **dev (playtest)** channel instead. Nothing else triggers
+it.
+
+**The first push only** — GHCR makes a new package private by default, and Legion
+cannot pull a private image. On GitHub: your profile → **Packages** →
+`power-per-click-server` → Package settings → **Change visibility → Public**. Do
+this once, right after the first successful workflow run.
+
+Legion sets `PORT`, `NODE_ENV`, `CLIENT_ORIGIN` (the game's own address, so
+`ALLOWED_ORIGINS` below is usually not needed on this host), `JWT_SECRET`,
+`MONGODB_URI`, `BLOXITY_GAME_ID`, `BLOXITY_CHANNEL` and `POD_NAME` on the running
+container — none of these belong in `.env` or anywhere else in this repo.
+
 ## Deploying to Render
 
 `render.yaml` is a Blueprint, so the service is defined here rather than in a
