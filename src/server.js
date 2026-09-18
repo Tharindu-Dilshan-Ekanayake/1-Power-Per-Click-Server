@@ -1,7 +1,7 @@
 const cors = require('cors')
 const express = require('express')
 
-const { attachRealtime } = require('./realtime')
+const { attachRealtime, originIsAllowed } = require('./realtime')
 
 const PORT = process.env.PORT || 3000
 
@@ -28,7 +28,10 @@ const { app } = realtime
 
 app.use(
   cors({
-    origin: ALLOWED_ORIGINS,
+    // A function, not the plain array, so a Legion-hosted build of this game is
+    // trusted the same way the socket already trusts it - see originIsAllowed's
+    // own comment in realtime.js for why that one extra case is safe.
+    origin: (origin, callback) => callback(null, originIsAllowed(origin, ALLOWED_ORIGINS)),
     credentials: true,
   }),
 )
