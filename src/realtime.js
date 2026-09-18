@@ -14,6 +14,37 @@ const HEARTBEAT_MS = 15000
 const HEARTBEAT_RETRIES = 2
 
 /**
+ * A trusted platform host whose subdomains this game may be served from.
+ *
+ * Stopgap for Bloxity Legion specifically, not a general escape hatch. Legion sets
+ * `CLIENT_ORIGIN` to "your game site" for CORS, but it was still refusing this
+ * game's own Legion-hosted frontend after a fresh deploy (both this game's PROD
+ * and DEV player pages are *.bloxity.io addresses we don't control the exact
+ * spelling of, and Legion's dashboard has no field to add one to ALLOWED_ORIGINS
+ * either) - so exact-matching alone left every Legion-hosted build of this game
+ * refusing its own socket, indefinitely, until that gets sorted out on their side.
+ *
+ * A whole second-level domain, not a wildcard prefix match: `*.bloxity.io` is safe
+ * to trust here specifically because nobody outside Bloxity can get a page served
+ * from under it - it is their platform, not a public suffix like `*.dev` or
+ * `*.app` a stranger could also get a domain under. Remove this the day Legion's
+ * origin handling actually works, or exposes a way to list one explicitly.
+ */
+const TRUSTED_HOST_SUFFIX = '.bloxity.io'
+
+/** Whether `origin` is exactly in `allowedOrigins`, or a `TRUSTED_HOST_SUFFIX` address. */
+function originIsAllowed(origin, allowedOrigins) {
+  if (!origin) return true
+  if (!allowedOrigins) return true
+  if (allowedOrigins.includes(origin)) return true
+  try {
+    return new URL(origin).hostname.endsWith(TRUSTED_HOST_SUFFIX)
+  } catch {
+    return false
+  }
+}
+
+/**
  * Sets up the lobby room and matchmaking (see lobbyRoom.js for the protocol).
  *
  * Colyseus owns the HTTP server here, not the caller - its matchmaking endpoints
@@ -23,7 +54,8 @@ const HEARTBEAT_RETRIES = 2
  *
  * @param {{ allowedOrigins?: string[] }} [options]
  *   Browsers always send an Origin header; connections from other origins are
- *   refused. Non-browser clients (tests, tools) send none and are let through.
+ *   refused (with the one exception in `originIsAllowed` above). Non-browser
+ *   clients (tests, tools) send none and are let through.
  * @returns {{ lobbies: LobbyManager, app: import('express').Application,
  *             listen: (port: number, cb?: () => void) => Promise<any>, close: () => Promise<void> }}
  */
@@ -34,7 +66,7 @@ function attachRealtime({ allowedOrigins } = {}) {
     maxPayload: MAX_MESSAGE_BYTES,
     pingInterval: HEARTBEAT_MS,
     pingMaxRetries: HEARTBEAT_RETRIES,
-    verifyClient: ({ origin }) => !origin || !allowedOrigins || allowedOrigins.includes(origin),
+    verifyClient: ({ origin }) => originIsAllowed(origin, allowedOrigins),
   })
   const app = transport.getExpressApp()
 
@@ -49,4 +81,4 @@ function attachRealtime({ allowedOrigins } = {}) {
   }
 }
 
-module.exports = { attachRealtime }
+module.exports = { attachRealtime, originIsAllowed }
