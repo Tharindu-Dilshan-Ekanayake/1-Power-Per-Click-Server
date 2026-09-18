@@ -5,11 +5,19 @@ const { attachRealtime } = require('./realtime')
 
 const PORT = process.env.PORT || 3000
 
-// Vite's dev server origin. Add the production origin(s) when you deploy, either
-// here or as a comma-separated ALLOWED_ORIGINS environment variable.
+/**
+ * Every browser origin allowed to open a lobby socket.
+ *
+ * Three sources, because three different things know a piece of the answer. The
+ * Vite dev origins are constants and belong in the code. `CLIENT_ORIGIN` is what
+ * Bloxity Legion sets to the game's own address, so on Legion the main one needs no
+ * configuring at all. `ALLOWED_ORIGINS` is the comma-separated list for everything
+ * else - preview builds, a phone on the Wi-Fi, a second front end.
+ */
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
+  ...(process.env.CLIENT_ORIGIN ? [process.env.CLIENT_ORIGIN.trim()] : []),
   ...(process.env.ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()).filter(Boolean) ?? []),
 ]
 
@@ -26,9 +34,17 @@ app.use(
 )
 app.use(express.json())
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true })
-})
+/**
+ * Two paths, one answer.
+ *
+ * `/health` is the one Bloxity Legion polls: a new deploy is given no traffic until
+ * it replies, and a pod that stops replying is replaced. `/api/health` is what
+ * render.yaml points at and what everything in this repo already used. Keeping both
+ * costs a line and means neither host has to be talked out of its own convention.
+ */
+const health = (_req, res) => res.json({ ok: true })
+app.get('/health', health)
+app.get('/api/health', health)
 
 /**
  * Auth passthrough for the Bloxity SDK.
@@ -78,3 +94,29 @@ app.get('/api/lobbies', (_req, res) => {
 realtime.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT} (lobbies over Colyseus)`)
 })
+
+/**
+ * Let the host drain this process instead of cutting it off.
+ *
+ * A rolling deploy sends SIGTERM and then waits a while before killing what is
+ * left. Node's default answer to SIGTERM is to die on the spot - and every player
+ * in a lobby is holding a WebSocket open, so that drops all of them, mid-game, on
+ * every single deploy. Colyseus's graceful shutdown closes the rooms first, which
+ * gives each client an ordinary disconnect it already knows how to reconnect from
+ * (see the retry backoff in the client's lobbyClient.js).
+ *
+ * Nothing is persisted on the way out because there is nothing to persist: lobbies
+ * are in-memory and disposable by design.
+ */
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    console.log(`${signal} received - draining lobbies`)
+    realtime.close().then(
+      () => process.exit(0),
+      (error) => {
+        console.error('graceful shutdown failed:', error)
+        process.exit(1)
+      },
+    )
+  })
+}
